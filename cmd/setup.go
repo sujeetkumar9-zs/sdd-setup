@@ -140,7 +140,7 @@ func printBanner() {
 	fmt.Println()
 	color.Blue("═══════════════════════════════════════════")
 	color.Blue("  SDD Setup - Kroger Go Projects")
-	color.Blue("  Spec-Driven Development v1.0.0")
+	color.Blue("  Spec-Driven Development " + Version)
 	color.Blue("═══════════════════════════════════════════")
 	fmt.Println()
 }

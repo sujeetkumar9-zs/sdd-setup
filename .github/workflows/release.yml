@@ -22,22 +22,22 @@ jobs:
         run: |
           # macOS Apple Silicon (M1/M2/M3)
           GOOS=darwin  GOARCH=arm64 go build \
-            -ldflags="-X main.version=${{ github.ref_name }}" \
+            -ldflags="-X github.com/sujeetkumar9-zs/sdd-setup/cmd.Version=${{ github.ref_name }}" \
             -o dist/sdd-macos-arm64 .
 
           # macOS Intel
           GOOS=darwin  GOARCH=amd64 go build \
-            -ldflags="-X main.version=${{ github.ref_name }}" \
+            -ldflags="-X github.com/sujeetkumar9-zs/sdd-setup/cmd.Version=${{ github.ref_name }}" \
             -o dist/sdd-macos-amd64 .
 
           # Linux
           GOOS=linux   GOARCH=amd64 go build \
-            -ldflags="-X main.version=${{ github.ref_name }}" \
+            -ldflags="-X github.com/sujeetkumar9-zs/sdd-setup/cmd.Version=${{ github.ref_name }}" \
             -o dist/sdd-linux-amd64 .
 
           # Windows
           GOOS=windows GOARCH=amd64 go build \
-            -ldflags="-X main.version=${{ github.ref_name }}" \
+            -ldflags="-X github.com/sujeetkumar9-zs/sdd-setup/cmd.Version=${{ github.ref_name }}" \
             -o dist/sdd-windows-amd64.exe .
 
       - name: Create GitHub Release

@@ -8,9 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version is set at build time via -ldflags "-X github.com/sujeetkumar9-zs/sdd-setup/cmd.Version=..."
+var Version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:     "sdd",
-	Version: "1.0.0",
+	Version: Version,
 	Short:   "SDD - Spec Driven Development Toolkit",
 	Long: color.BlueString(`
 ╔═══════════════════════════════════════════════╗
