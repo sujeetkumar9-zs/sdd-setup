@@ -11,7 +11,7 @@ const palacePath = "./.mempalace/palace"
 // Init initializes mempalace in the current directory
 func Init() error {
 	if _, err := os.Stat(".mempalace"); os.IsNotExist(err) {
-		return run("mempalace", "init", ".")
+		return run("mempalace", "init", "--yes", ".")
 	}
 	return nil
 }
@@ -49,6 +49,7 @@ func GetMCPCommand() (string, error) {
 
 func run(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

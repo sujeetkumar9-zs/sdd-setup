@@ -53,6 +53,8 @@ func InstallGoTools() error {
 
 	for _, tool := range tools {
 		cmd := exec.Command("go", "install", tool)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to install %s: %w", tool, err)
 		}
