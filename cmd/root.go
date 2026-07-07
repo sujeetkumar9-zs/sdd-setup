@@ -18,7 +18,7 @@ var rootCmd = &cobra.Command{
 	Long: color.BlueString(`
 ╔═══════════════════════════════════════════════╗
 ║     SDD - Spec Driven Development Toolkit     ║
-║     Kroger Technology | Go Projects           ║
+║     Spec-Driven Development for Go            ║
 ╚═══════════════════════════════════════════════╝
 
 Transforms Jira/Confluence specs into merged PRs

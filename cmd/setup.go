@@ -6,11 +6,11 @@ import (
 	"os/exec"
 
 	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 	"github.com/sujeetkumar9-zs/sdd-setup/internal/mcp"
 	"github.com/sujeetkumar9-zs/sdd-setup/internal/mempalace"
 	"github.com/sujeetkumar9-zs/sdd-setup/internal/system"
 	"github.com/sujeetkumar9-zs/sdd-setup/internal/templates"
-	"github.com/spf13/cobra"
 )
 
 var skipMine bool
@@ -139,7 +139,7 @@ type step struct {
 func printBanner() {
 	fmt.Println()
 	color.Blue("═══════════════════════════════════════════")
-	color.Blue("  SDD Setup - Kroger Go Projects")
+	color.Blue("  SDD Setup")
 	color.Blue("  Spec-Driven Development " + Version)
 	color.Blue("═══════════════════════════════════════════")
 	fmt.Println()
