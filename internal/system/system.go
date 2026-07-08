@@ -47,8 +47,6 @@ func InstallGoTools() error {
 	tools := []string{
 		"github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
 		"github.com/vektra/mockery/v2@latest",
-		"golang.org/x/tools/cmd/goimports@latest",
-		"gotest.tools/gotestsum@latest",
 	}
 
 	for _, tool := range tools {

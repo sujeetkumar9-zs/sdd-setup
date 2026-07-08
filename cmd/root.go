@@ -40,4 +40,5 @@ func init() {
 	rootCmd.AddCommand(qualityCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(teardownCmd)
 }

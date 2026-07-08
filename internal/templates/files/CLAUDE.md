@@ -2,42 +2,24 @@
 
 ## Codebase Knowledge — Use Mempalace First
 
-This project has a **Mempalace** MCP server connected (`mempalace`). It contains a pre-indexed semantic knowledge graph of the entire codebase.
+The `mempalace` MCP server is connected and contains a pre-indexed semantic knowledge graph of this codebase.
 
-### Hard rules
+**Hard rules:**
+- Call the `mempalace` MCP search tool for any question about the codebase — types, flows, patterns, interfaces, which file handles what
+- Do NOT use `Explore`, `Grep`, `Glob`, `Read`, or `Bash` to explore the codebase
+- Only `Read` a file when you are about to edit that specific file
 
-- **NEVER** use `Explore`, `Grep`, `Glob`, `Read`, or `Bash` (find/grep/cat) to understand the codebase structure, find types, or discover patterns
-- **ALWAYS** call the `mempalace` MCP search tool first for any question about the codebase
-- Only open a specific file with `Read` when you are about to make a targeted edit to that exact file
+**When to use each tool:**
 
-### When to use Mempalace vs file tools
-
-| Task | Tool to use |
+| Need | Tool |
 |---|---|
-| Understanding a domain concept or flow | `mempalace` MCP search |
-| Finding which package/file handles X | `mempalace` MCP search |
-| Understanding existing types or interfaces | `mempalace` MCP search |
-| Discovering conventions or patterns | `mempalace` MCP search |
-| Making an edit to a specific known file | `Read` then `Edit` |
+| Understand a flow or concept | `mempalace` MCP search |
+| Find types, interfaces, packages | `mempalace` MCP search |
+| Discover conventions or patterns | `mempalace` MCP search |
+| Edit a specific file | `Read` → `Edit` |
 
-### Example
+## Go Conventions
 
-If asked to understand the household cards endpoint flow:
-1. Call `mempalace` MCP → search "household cards endpoint flow"
-2. Use those results to form a plan
-3. Only `Read` a file if you need to edit it
-
-Do NOT run `grep -r FetchHouseholdCards` or open `service_interfaces.go` to explore — that information is already in Mempalace.
-
-## Go Project Conventions
-
-- Follow existing patterns exactly — naming, error handling, logging style
-- Do not introduce new conventions or abstractions not already present
-- Match the layer structure: handler → service → repository (or equivalent in this repo)
-
-## Workflow
-
-1. Search Mempalace to understand the relevant domain and patterns
-2. Plan changes (list files to modify, types to add)
-3. Get user approval before writing any code
-4. Implement, then run `go build ./...`, `go test ./...`, `golangci-lint run`
+- Match existing patterns exactly — naming, error handling, logging
+- Do not introduce new abstractions not already present in the codebase
+- Get user approval on the plan before writing any code

@@ -119,6 +119,15 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	}
 
 	printSetupComplete()
+
+	// Verify everything is wired up correctly
+	fmt.Printf("  %s Running post-setup verification...\n\n", color.BlueString("→"))
+	if err := runVerify(cmd, args); err != nil {
+		fmt.Println()
+		color.Yellow("  Setup completed but some checks failed — see above for fix hints.")
+		fmt.Println()
+	}
+
 	return nil
 }
 

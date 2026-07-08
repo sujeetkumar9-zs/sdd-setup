@@ -29,7 +29,7 @@ sdd --version
 ## Requirements
 
 - Go 1.21+
-- Python 3.8+
+- Python 3.8+ (`brew install python` on macOS)
 - Claude Code CLI (`npm install -g @anthropic-ai/claude-code`)
 - Docker
 - Mempalace CLI (`pipx install mempalace`)

@@ -8,8 +8,9 @@ Steps:
 3. Generate an implementation plan and present it — wait for explicit approval before writing any code
 4. Implement the feature following existing code conventions exactly
 5. Write tests targeting ≥ 80% coverage
-6. Run quality gates: go test ./..., go vet ./..., golangci-lint run, gofmt -l .
-7. Create a PR with a clear description referencing the spec
+6. Run `sdd mine` to update the knowledge graph with your new code
+7. Run quality gates: go test ./..., go vet ./..., golangci-lint run, gofmt -l .
+8. Create a PR with a clear description referencing the spec
 
 Do not proceed past the plan step without explicit approval.
 Do not open any file for reading unless you are about to edit that specific file.

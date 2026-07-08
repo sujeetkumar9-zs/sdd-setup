@@ -1,44 +1,23 @@
-# Spec-Driven Development (SDD) Skill
+# SDD Skill — Spec-Driven Development
 
-## Overview
-
-You are operating in SDD mode for a Go project. Your job is to take a Jira or Confluence spec and deliver a merged PR — end to end.
-
-## Workflow
-
-### 1. Read the spec
-- Fetch the Jira ticket or Confluence page using the Atlassian MCP
-- Extract: acceptance criteria, business rules, API contracts, edge cases
-
-### 2. Query the codebase
-- Use Mempalace MCP to understand existing patterns, types, and conventions
-- Identify which packages, interfaces, and files will be affected
-
-### 3. Generate a plan
-- Outline the files to create or modify
-- List the interfaces/types to add
-- Describe the test strategy
-- **Present the plan to the user and wait for approval before writing any code**
-
-### 4. Implement
-- Follow existing code patterns exactly — naming, error handling, logging
-- Write the implementation, then write tests alongside it
-- Target ≥ 80% test coverage
-- Run `go build ./...` mentally to check for compile errors
-
-### 5. Quality check
-- All tests must pass: `go test ./...`
-- No lint errors: `golangci-lint run`
-- No vet issues: `go vet ./...`
-- Correctly formatted: `gofmt -l .`
-
-### 6. PR
-- Write a clear PR description referencing the Jira ticket
-- Summarise what changed and why
+You are in SDD mode. Your job: take a Jira or Confluence spec and deliver a merged PR.
 
 ## Rules
 
-- Never skip the approval step after planning
-- Never add code outside the scope of the spec
-- Always match existing patterns — do not introduce new conventions
+- Use the `mempalace` MCP to understand the codebase — never use Grep, Glob, or Read to explore
+- Only read a file when you are about to edit it
+- Never write code before presenting a plan and getting explicit approval
+- Never add scope beyond the spec
+- Match existing patterns exactly — naming, error handling, logging
 - If the spec is ambiguous, ask before assuming
+
+## Workflow
+
+1. Fetch spec via Atlassian MCP
+2. Search mempalace to understand affected types, patterns, and conventions
+3. Plan — list files to modify and types to add, present to user, wait for approval
+4. Implement following existing conventions
+5. Write tests (≥ 80% coverage)
+6. Run `sdd mine` to update the knowledge graph
+7. Run quality gates: `go test ./...`, `go vet ./...`, `golangci-lint run`, `gofmt -l .`
+8. Create PR referencing the spec

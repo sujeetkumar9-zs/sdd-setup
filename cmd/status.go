@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/fatih/color"
 	"github.com/sujeetkumar9-zs/sdd-setup/internal/mempalace"
@@ -21,13 +22,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	color.Blue("═══════════════════════════════════════════")
 	fmt.Println()
 
-	fmt.Printf("  %s Mempalace Knowledge Graph:\n\n",
-		color.BlueString("→"))
+	fmt.Printf("  %s Mempalace Knowledge Graph:\n\n", color.BlueString("→"))
 	mempalace.Status()
 
 	fmt.Println()
-	fmt.Printf("  %s MCP Servers:\n\n",
-		color.BlueString("→"))
+	fmt.Printf("  %s MCP Servers:\n\n", color.BlueString("→"))
 	showMCPStatus()
 
 	fmt.Println()
@@ -35,7 +34,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 }
 
 func showMCPStatus() {
-	import_exec := true
-	_ = import_exec
-	// Implementation shows claude mcp list output
+	out, err := exec.Command("claude", "mcp", "list").Output()
+	if err != nil {
+		fmt.Printf("  %s Could not run 'claude mcp list': %s\n",
+			color.RedString("✗"), err.Error())
+		return
+	}
+	fmt.Print(string(out))
 }
