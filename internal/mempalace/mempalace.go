@@ -11,7 +11,7 @@ const palacePath = "./.mempalace/palace"
 // Init initializes mempalace in the current directory
 func Init() error {
 	if _, err := os.Stat(".mempalace"); os.IsNotExist(err) {
-		return run("mempalace", "init", "--yes", ".")
+		return run("mempalace", "init", ".")
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"bytes"
 	_ "embed"
 	"os"
 	"path/filepath"
@@ -30,6 +31,9 @@ var badSpec []byte
 //go:embed files/golangci.yml
 var golangciYML []byte
 
+//go:embed files/CLAUDE.md
+var claudeMD []byte
+
 // Install copies all template files to the project
 func Install() error {
 	files := map[string][]byte{
@@ -43,7 +47,6 @@ func Install() error {
 	}
 
 	for path, content := range files {
-		// Create directory
 		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -57,5 +60,25 @@ func Install() error {
 		}
 	}
 
-	return nil
+	return installClaudeMD()
+}
+
+// installClaudeMD writes the mempalace instructions to .claude/CLAUDE.md.
+// This is separate from the repo's own CLAUDE.md — Claude Code loads both
+// automatically so instructions are combined without touching existing files.
+func installClaudeMD() error {
+	const path = ".claude/CLAUDE.md"
+	const marker = "## Codebase Knowledge — Use Mempalace First"
+
+	existing, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	// Already installed — idempotent
+	if bytes.Contains(existing, []byte(marker)) {
+		return nil
+	}
+
+	return os.WriteFile(path, claudeMD, 0644)
 }
