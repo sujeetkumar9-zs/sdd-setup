@@ -16,9 +16,10 @@ The `mempalace` MCP server is connected and contains a pre-indexed semantic know
 | Understand a flow or concept | `mempalace` MCP search |
 | Find types, interfaces, packages | `mempalace` MCP search |
 | Discover conventions or patterns | `mempalace` MCP search |
+| Understand a framework or library | `mempalace` MCP search |
 | Edit a specific file | `Read` → `Edit` |
 
-## Go Conventions
+## Language Conventions
 
 - Match existing patterns exactly — naming, error handling, logging
 - Do not introduce new abstractions not already present in the codebase

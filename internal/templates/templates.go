@@ -25,14 +25,18 @@ var golangciYML []byte
 //go:embed files/CLAUDE.md
 var claudeMD []byte
 
-// Install copies all template files to the project
+// Install copies all template files to the project.
+// Language-specific files (e.g. golangci.yml) are only installed when relevant.
 func Install() error {
 	files := map[string][]byte{
-		".claude/skills/spec-to-pr-go/SKILL.md":  skillMD,
-		".claude/commands/spec-to-pr.md":         specToPRCmd,
-		".claude/commands/spec-to-pr-status.md":  specToPRStatus,
-		".claude/commands/spec-to-pr-quality.md": specToPRQuality,
-		".golangci.yml":                          golangciYML,
+		".claude/skills/spec-to-pr/SKILL.md":      skillMD,
+		".claude/commands/spec-to-pr.md":           specToPRCmd,
+		".claude/commands/spec-to-pr-status.md":    specToPRStatus,
+		".claude/commands/spec-to-pr-quality.md":   specToPRQuality,
+	}
+
+	if detectLang() == "go" {
+		files[".golangci.yml"] = golangciYML
 	}
 
 	for path, content := range files {
@@ -70,4 +74,28 @@ func installClaudeMD() error {
 	}
 
 	return os.WriteFile(path, claudeMD, 0644)
+}
+
+// detectLang identifies the project language from marker files.
+func detectLang() string {
+	markers := []struct {
+		file string
+		lang string
+	}{
+		{"go.mod", "go"},
+		{"package.json", "node"},
+		{"pyproject.toml", "python"},
+		{"requirements.txt", "python"},
+		{"pom.xml", "java"},
+		{"build.gradle", "java"},
+		{"build.gradle.kts", "java"},
+		{"Cargo.toml", "rust"},
+	}
+
+	for _, m := range markers {
+		if _, err := os.Stat(m.file); err == nil {
+			return m.lang
+		}
+	}
+	return "unknown"
 }

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/fatih/color"
@@ -17,12 +16,13 @@ var skipMine bool
 
 var setupCmd = &cobra.Command{
 	Use:   "setup",
-	Short: "Complete one-time SDD setup for your Go project",
+	Short: "Complete one-time SDD setup for your project",
 	Long: `Sets up everything needed for Spec-Driven Development:
 
+  ✓ Detects project language
   ✓ Checks all prerequisites
   ✓ Creates Python virtual environment
-  ✓ Installs Go quality tools
+  ✓ Installs language quality tools
   ✓ Initializes Mempalace knowledge graph
   ✓ Mines your codebase
   ✓ Configures Claude MCP servers
@@ -30,7 +30,7 @@ var setupCmd = &cobra.Command{
   ✓ Updates .gitignore
 
 Usage:
-  cd your-go-project
+  cd your-project
   sdd setup`,
 	RunE: runSetup,
 }
@@ -47,20 +47,14 @@ func init() {
 func runSetup(cmd *cobra.Command, args []string) error {
 	printBanner()
 
-	// Verify Go project
-	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
-		return fmt.Errorf(
-			"no go.mod found\n" +
-				"  → Run this command from your Go project root",
-		)
-	}
+	lang := system.DetectLanguage()
+	printDetectedLang(lang)
 
-	// Define all setup steps
 	steps := []step{
 		{
 			name:        "Checking prerequisites",
-			description: "Go, Python, Claude, Docker",
-			fn:          system.CheckPrerequisites,
+			description: "Python, Claude, mempalace" + langPrereqDesc(lang),
+			fn:          func() error { return system.CheckPrerequisites(lang) },
 		},
 		{
 			name:        "Creating Python virtual environment",
@@ -68,9 +62,9 @@ func runSetup(cmd *cobra.Command, args []string) error {
 			fn:          system.CreateVenv,
 		},
 		{
-			name:        "Installing Go quality tools",
-			description: "golangci-lint, mockery, goimports",
-			fn:          system.InstallGoTools,
+			name:        "Installing language tools",
+			description: langToolDesc(lang),
+			fn:          func() error { return system.InstallLanguageTools(lang) },
 		},
 		{
 			name:        "Initializing Mempalace",
@@ -132,6 +126,40 @@ func runSetup(cmd *cobra.Command, args []string) error {
 }
 
 // ─────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────
+
+func langPrereqDesc(lang string) string {
+	switch lang {
+	case system.LangGo:
+		return ", go"
+	case system.LangNode:
+		return ", node, npm"
+	case system.LangRust:
+		return ", cargo"
+	default:
+		return ""
+	}
+}
+
+func langToolDesc(lang string) string {
+	switch lang {
+	case system.LangGo:
+		return "golangci-lint, mockery"
+	case system.LangNode:
+		return "eslint"
+	case system.LangPython:
+		return "ruff, pytest"
+	case system.LangRust:
+		return "using rustup (no additional install)"
+	case system.LangJava:
+		return "using Maven/Gradle (no additional install)"
+	default:
+		return "none detected"
+	}
+}
+
+// ─────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────
 
@@ -152,6 +180,13 @@ func printBanner() {
 	color.Blue("  Spec-Driven Development " + Version)
 	color.Blue("═══════════════════════════════════════════")
 	fmt.Println()
+}
+
+func printDetectedLang(lang string) {
+	fmt.Printf("  %s Detected language: %s\n\n",
+		color.BlueString("→"),
+		color.CyanString(lang),
+	)
 }
 
 func printStep(current, total int, name, desc string) {
@@ -194,7 +229,7 @@ func printSetupComplete() {
 	fmt.Printf("  2. Start Claude:     %s\n",
 		color.CyanString("claude"))
 	fmt.Printf("  3. Start a feature:  %s\n",
-		color.CyanString("/spec-to-pr <jira-url>"))
+		color.CyanString("/spec-to-pr <jira-key> [confluence-url ...]"))
 	fmt.Printf("  4. After coding:     %s\n",
 		color.CyanString("sdd mine"))
 	fmt.Printf("  5. Before PR:        %s\n",

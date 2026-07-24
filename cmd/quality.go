@@ -12,13 +12,13 @@ import (
 var qualityCmd = &cobra.Command{
 	Use:   "quality",
 	Short: "Run all quality gates before creating a PR",
-	Long: `Runs all quality checks required before creating a PR:
+	Long: `Detects the project language and runs the appropriate quality checks:
 
-  1. go test ./...         (all tests must pass)
-  2. go vet ./...          (static analysis)
-  3. golangci-lint run     (lint checks)
-  4. gofmt -l .            (format check)
-  5. go build ./...        (must compile)
+  Go:     go test, go vet, golangci-lint, gofmt, go build
+  Node:   npm test, npm run lint, npm run build
+  Python: pytest, ruff check, ruff format --check
+  Rust:   cargo test, cargo clippy, cargo fmt --check, cargo build
+  Java:   mvn/gradlew test + build
 
 Blocks on any failure. Fix all issues before PR.`,
 	RunE: runQuality,
@@ -37,41 +37,7 @@ func runQuality(cmd *cobra.Command, args []string) error {
 	color.Blue("═══════════════════════════════════════════")
 	fmt.Println()
 
-	gates := []gate{
-		{
-			name:    "Tests",
-			command: []string{"go", "test", "./..."},
-		},
-		{
-			name:    "Race Condition Check",
-			command: []string{"go", "test", "-race", "./..."},
-		},
-		{
-			name:    "Vet",
-			command: []string{"go", "vet", "./..."},
-		},
-		{
-			name:    "Lint",
-			command: []string{"golangci-lint", "run"},
-		},
-		{
-			name:    "Format",
-			command: []string{"gofmt", "-l", "."},
-			check: func(output string) error {
-				if output != "" {
-					return fmt.Errorf(
-						"files need formatting:\n%s\n  Run: gofmt -w .",
-						output,
-					)
-				}
-				return nil
-			},
-		},
-		{
-			name:    "Build",
-			command: []string{"go", "build", "./..."},
-		},
-	}
+	gates := languageGates()
 
 	allPassed := true
 	results := []string{}
@@ -121,4 +87,94 @@ func runQuality(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	return nil
+}
+
+// languageGates detects the project language and returns the appropriate gates.
+func languageGates() []gate {
+	for _, m := range []struct {
+		file  string
+		gates []gate
+	}{
+		{"go.mod", goGates()},
+		{"package.json", nodeGates()},
+		{"pyproject.toml", pythonGates()},
+		{"requirements.txt", pythonGates()},
+		{"Cargo.toml", rustGates()},
+		{"pom.xml", mavenGates()},
+		{"build.gradle", gradleGates()},
+		{"build.gradle.kts", gradleGates()},
+	} {
+		if _, err := os.Stat(m.file); err == nil {
+			return m.gates
+		}
+	}
+	return goGates()
+}
+
+func goGates() []gate {
+	return []gate{
+		{name: "Tests", command: []string{"go", "test", "./..."}},
+		{name: "Race Condition Check", command: []string{"go", "test", "-race", "./..."}},
+		{name: "Vet", command: []string{"go", "vet", "./..."}},
+		{name: "Lint", command: []string{"golangci-lint", "run"}},
+		{
+			name:    "Format",
+			command: []string{"gofmt", "-l", "."},
+			check: func(output string) error {
+				if output != "" {
+					return fmt.Errorf(
+						"files need formatting:\n%s\n  Run: gofmt -w .",
+						output,
+					)
+				}
+				return nil
+			},
+		},
+		{name: "Build", command: []string{"go", "build", "./..."}},
+	}
+}
+
+func nodeGates() []gate {
+	return []gate{
+		{name: "Tests", command: []string{"npm", "test"}},
+		{name: "Lint", command: []string{"npm", "run", "lint"}},
+		{name: "Build", command: []string{"npm", "run", "build"}},
+	}
+}
+
+func pythonGates() []gate {
+	return []gate{
+		{name: "Tests", command: []string{"pytest"}},
+		{name: "Lint", command: []string{"ruff", "check", "."}},
+		{
+			name:    "Format",
+			command: []string{"ruff", "format", "--check", "."},
+		},
+	}
+}
+
+func rustGates() []gate {
+	return []gate{
+		{name: "Tests", command: []string{"cargo", "test"}},
+		{name: "Lint", command: []string{"cargo", "clippy", "--", "-D", "warnings"}},
+		{
+			name:    "Format",
+			command: []string{"cargo", "fmt", "--check"},
+		},
+		{name: "Build", command: []string{"cargo", "build"}},
+	}
+}
+
+func mavenGates() []gate {
+	return []gate{
+		{name: "Tests", command: []string{"mvn", "test"}},
+		{name: "Build", command: []string{"mvn", "package", "-DskipTests"}},
+	}
+}
+
+func gradleGates() []gate {
+	return []gate{
+		{name: "Tests", command: []string{"./gradlew", "test"}},
+		{name: "Build", command: []string{"./gradlew", "build", "-x", "test"}},
+	}
 }

@@ -19,7 +19,7 @@ var verifyCmd = &cobra.Command{
   ✓ Palace initialized with data
   ✓ MCP server registered and connected
   ✓ Claude Code installed
-  ✓ Go quality tools available
+  ✓ Language quality tools available
   ✓ Virtual environment exists
   ✓ .gitignore configured correctly
 
@@ -65,16 +65,6 @@ func runVerify(cmd *cobra.Command, args []string) error {
 			fixHint: "Run: npm install -g @anthropic-ai/claude-code",
 		},
 		{
-			name:    "golangci-lint installed",
-			fn:      func() error { return checkTool("golangci-lint") },
-			fixHint: "Run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
-		},
-		{
-			name:    "mockery installed",
-			fn:      func() error { return checkTool("mockery") },
-			fixHint: "Run: go install github.com/vektra/mockery/v2@latest",
-		},
-		{
 			name:    "Python venv exists",
 			fn:      checkVenv,
 			fixHint: "Run: python3 -m venv .venv",
@@ -89,6 +79,22 @@ func runVerify(cmd *cobra.Command, args []string) error {
 			fn:      checkGitignore,
 			fixHint: "Run: sdd setup",
 		},
+	}
+
+	// Add Go-specific tool checks only for Go projects
+	if isGoProject() {
+		checks = append(checks,
+			check{
+				name:    "golangci-lint installed",
+				fn:      func() error { return checkTool("golangci-lint") },
+				fixHint: "Run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
+			},
+			check{
+				name:    "mockery installed",
+				fn:      func() error { return checkTool("mockery") },
+				fixHint: "Run: go install github.com/vektra/mockery/v2@latest",
+			},
+		)
 	}
 
 	passed := 0
@@ -131,6 +137,11 @@ func runVerify(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func isGoProject() bool {
+	_, err := os.Stat("go.mod")
+	return err == nil
+}
+
 func checkMempalaceInstalled() error {
 	_, err := exec.LookPath("mempalace")
 	return err
@@ -144,14 +155,17 @@ func checkMempalaceDir() error {
 }
 
 func checkPalaceData() error {
-	info, err := os.Stat(".mempalace/palace/index.db")
-	if os.IsNotExist(err) {
-		return fmt.Errorf("index.db not found")
+	// mempalace 3.x uses ChromaDB (chroma.sqlite3); older versions used index.db
+	for _, candidate := range []string{
+		".mempalace/palace/chroma.sqlite3",
+		".mempalace/palace/index.db",
+	} {
+		info, err := os.Stat(candidate)
+		if err == nil && info.Size() > 0 {
+			return nil
+		}
 	}
-	if info.Size() == 0 {
-		return fmt.Errorf("index.db is empty")
-	}
-	return nil
+	return fmt.Errorf("palace has no data — run: sdd mine")
 }
 
 func checkMCPRegistered() error {
@@ -183,7 +197,7 @@ func checkVenv() error {
 }
 
 func checkSkillMD() error {
-	path := ".claude/skills/spec-to-pr-go/SKILL.md"
+	path := ".claude/skills/spec-to-pr/SKILL.md"
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("not found")
 	}
