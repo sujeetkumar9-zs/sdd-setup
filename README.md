@@ -1,6 +1,6 @@
 # sdd — Spec-Driven Development CLI
 
-A CLI tool that sets up AI-powered feature development for Go projects using Claude Code and Mempalace.
+A CLI tool that sets up AI-powered feature development for any project using Claude Code and Mempalace. Supports Go, Node/TypeScript, Python, Rust, and Java.
 
 ## Install
 
@@ -28,33 +28,42 @@ sdd --version
 
 ## Requirements
 
-- Go 1.21+
 - Python 3.8+ (`brew install python` on macOS)
 - Claude Code CLI (`npm install -g @anthropic-ai/claude-code`)
-- Docker
 - Mempalace CLI (`pipx install mempalace`)
-- `golangci-lint`, `mockery` (installed automatically by `sdd setup`)
+- Atlassian MCP configured (for Jira + Confluence access)
+
+**Language-specific prerequisites** (checked automatically by `sdd setup`):
+
+| Language | Required |
+|---|---|
+| Go | Go 1.21+ |
+| Node / TypeScript | Node + npm |
+| Python | Python 3.8+ |
+| Rust | Rust toolchain via `rustup` |
+| Java | Maven or Gradle |
 
 ## Usage
 
 ### One-time setup
 
-Run once from the root of your Go project:
+Run once from the root of your project:
 
 ```bash
-cd your-go-project
+cd your-project
 sdd setup
 ```
 
-This will:
-- Check all prerequisites
-- Create a Python virtual environment (`.venv`)
-- Install Go quality tools (`golangci-lint`, `mockery`, `goimports`)
-- Initialize the Mempalace knowledge graph (`.mempalace/palace/`)
-- Mine your codebase into the knowledge graph
-- Configure Claude MCP servers
-- Install SDD skills and slash commands (`SKILL.md`)
-- Update `.gitignore`
+`sdd setup` automatically detects your project language and:
+
+- Checks all prerequisites
+- Creates a Python virtual environment (`.venv`)
+- Installs language quality tools (see table below)
+- Initializes the Mempalace knowledge graph (`.mempalace/palace/`)
+- Mines your codebase into the knowledge graph
+- Configures Claude MCP servers (mempalace + Atlassian)
+- Installs SDD skills and slash commands into `.claude/`
+- Updates `.gitignore`
 
 To skip the codebase mining step:
 ```bash
@@ -75,22 +84,82 @@ sdd verify
 
 # Show knowledge graph and MCP server status
 sdd status
+
+# Search the knowledge graph directly
+sdd search "repository pattern"
+
+# Remove SDD setup from this project
+sdd teardown
 ```
 
-## Commands
+## CLI Commands
 
 | Command | Description |
-|---------|-------------|
+|---|---|
 | `sdd setup` | One-time project setup |
-| `sdd mine` | Re-index codebase into knowledge graph |
-| `sdd verify` | Check all SDD components are working |
+| `sdd mine` | Re-index codebase into the knowledge graph |
 | `sdd quality` | Run all quality gates before a PR |
+| `sdd verify` | Check all SDD components are working |
 | `sdd status` | Show knowledge graph and MCP status |
+| `sdd search <query>` | Search the project knowledge graph |
+| `sdd teardown` | Remove Mempalace and venv from this project |
+
+## Claude Slash Commands
+
+After `sdd setup`, the following slash commands are available inside Claude Code:
+
+### `/spec-to-pr JIRA-KEY [confluence-page ...]`
+
+Implements a feature end-to-end from a Jira spec. Phases:
+
+1. **Context** — fetches Jira issue, Confluence pages, and queries mempalace for relevant codebase patterns
+2. **Plan** — builds a layered implementation plan (models → data → service → API → tests → PR)
+3. **Approval** — presents the plan; waits for explicit approval before writing any code
+4. **Implementation** — implements each layer following existing codebase conventions
+5. **Quality + PR** — runs `sdd quality`, then creates the PR
+
+```
+/spec-to-pr PROJ-123
+/spec-to-pr PROJ-123 confluence-page-id
+/spec-to-pr PROJ-123 arch-page-id api-contracts-page-id
+```
+
+### `/spec-to-pr-status`
+
+Reports current progress through the spec-to-pr workflow: which phase is active, what is done, what remains, and any blockers.
+
+### `/spec-to-pr-quality`
+
+Runs all language-appropriate quality gates and reports results with fix instructions for each failure.
+
+### `/review-pr JIRA-KEY [confluence-page ...]`
+
+Reviews the open PR on the current branch as a senior engineer. Phases:
+
+1. **Context** — fetches the PR diff, Jira acceptance criteria, Confluence architecture docs, and queries mempalace for patterns in the touched layers. Reads any external repos or frameworks referenced in the spec.
+2. **Review** — evaluates the diff across eight dimensions:
+   - **Requirement fulfillment** — every acceptance criterion traced to the diff
+   - **Architecture alignment** — compliance with existing patterns and any provided architecture docs
+   - **SOLID principles** — SRP, OCP, LSP, ISP, DIP where applicable
+   - **Design patterns** — correct use of patterns; flags anti-patterns and suggests better alternatives
+   - **Code quality** — naming, error handling, logging, dead code
+   - **Test coverage** — happy path, error paths, edge cases, meaningful assertions
+   - **Security** — input validation, injection risks, auth checks, secret handling
+   - **Performance** — N+1 queries, unbounded loops, missing timeouts
+3. **Report** — produces a structured review with verdict (`APPROVE` / `REQUEST CHANGES` / `NEEDS DISCUSSION`), file:line-anchored findings, corrected code snippets, and explicit callout of what was done well
+4. **Confirmation** — presents the review in the conversation; only posts to GitHub if the user explicitly confirms
+
+```
+/review-pr PROJ-123
+/review-pr PROJ-123 confluence-page-id
+/review-pr PROJ-123 arch-page-id api-contracts-page-id
+```
 
 ## Quality Gates
 
-`sdd quality` runs the following checks in order and blocks on any failure:
+`sdd quality` (and `/spec-to-pr-quality`) runs the appropriate gates for the detected language:
 
+**Go**
 1. `go test ./...` — all tests must pass
 2. `go test -race ./...` — race condition check
 3. `go vet ./...` — static analysis
@@ -98,24 +167,81 @@ sdd status
 5. `gofmt -l .` — formatting check
 6. `go build ./...` — must compile
 
+**Node / TypeScript**
+1. `npm test` — all tests must pass
+2. `npm run lint` — lint checks
+3. `npm run build` — must compile/bundle
+
+**Python**
+1. `pytest` — all tests must pass
+2. `ruff check .` — lint checks
+3. `ruff format --check .` — formatting check
+
+**Rust**
+1. `cargo test` — all tests must pass
+2. `cargo clippy -- -D warnings` — lint checks
+3. `cargo fmt --check` — formatting check
+4. `cargo build` — must compile
+
+**Java (Maven)**
+1. `mvn test` — all tests must pass
+2. `mvn package -DskipTests` — must build
+
+**Java (Gradle)**
+1. `./gradlew test` — all tests must pass
+2. `./gradlew build -x test` — must build
+
+## Language Quality Tools
+
+Installed automatically by `sdd setup`:
+
+| Language | Tools |
+|---|---|
+| Go | `golangci-lint`, `mockery`, `goimports` |
+| Node / TypeScript | `eslint` |
+| Python | `ruff`, `pytest` |
+| Rust | uses `rustup` (no additional install) |
+| Java | uses Maven or Gradle (no additional install) |
+
 ## How It Works
 
+### Spec-to-PR workflow
+
 ```
-Spec (Jira / Confluence)
+Jira issue + Confluence pages
         ↓
-Claude reads spec via Atlassian MCP
+Claude fetches spec via Atlassian MCP
         ↓
-Claude queries your codebase via Mempalace MCP
+Claude queries codebase via Mempalace MCP
         ↓
-Claude generates implementation plan → you approve
+Layered implementation plan → you approve
         ↓
-Claude implements code following your patterns
+Claude implements code matching your patterns
         ↓
-Claude generates tests (≥ 80% coverage)
+Tests written (≥ 80% coverage target)
         ↓
 Quality gates run automatically
         ↓
-PR created and merged ✅
+PR created ✅
+```
+
+### Review-PR workflow
+
+```
+Jira issue + Confluence pages + current branch PR
+        ↓
+Claude fetches PR diff via GitHub MCP
+        ↓
+Claude fetches spec + architecture docs via Atlassian MCP
+        ↓
+Claude queries codebase context via Mempalace MCP
+        ↓
+8-dimension review (requirements, architecture, SOLID,
+patterns, quality, tests, security, performance)
+        ↓
+Structured review report with verdict + fix suggestions
+        ↓
+You confirm → posted to GitHub as PR review ✅
 ```
 
 ## Troubleshooting
@@ -126,9 +252,9 @@ Run `sdd verify` to diagnose issues. It checks:
 - Palace index has data (`sdd mine` if empty)
 - Mempalace MCP server is registered with Claude
 - Claude Code is installed
-- Go quality tools are available
+- Language quality tools are available
 - Python venv exists
-- `SKILL.md` is present
+- SDD skills and commands are present in `.claude/`
 - `.gitignore` is configured
 
 Each failed check includes a specific fix hint.
@@ -140,4 +266,13 @@ git clone https://github.com/sujeetkumar9-zs/sdd-setup.git
 cd sdd-setup
 go mod tidy
 go build -o sdd .
+./sdd --help
+```
+
+To test changes in another project without publishing a release:
+
+```bash
+go install .        # rebuilds and installs to $GOPATH/bin
+cd your-other-project
+sdd setup           # installs updated skills and commands
 ```

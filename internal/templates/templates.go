@@ -19,6 +19,12 @@ var specToPRStatus []byte
 //go:embed files/commands/spec-to-pr-quality.md
 var specToPRQuality []byte
 
+//go:embed files/commands/review-pr.md
+var reviewPRCmd []byte
+
+//go:embed files/skills/review-pr/SKILL.md
+var reviewPRSkill []byte
+
 //go:embed files/golangci.yml
 var golangciYML []byte
 
@@ -33,6 +39,8 @@ func Install() error {
 		".claude/commands/spec-to-pr.md":           specToPRCmd,
 		".claude/commands/spec-to-pr-status.md":    specToPRStatus,
 		".claude/commands/spec-to-pr-quality.md":   specToPRQuality,
+		".claude/commands/review-pr.md":             reviewPRCmd,
+		".claude/skills/review-pr/SKILL.md":         reviewPRSkill,
 	}
 
 	if detectLang() == "go" {
