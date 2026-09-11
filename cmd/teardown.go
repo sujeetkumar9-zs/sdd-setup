@@ -11,23 +11,42 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var teardownFull bool
+
 var teardownCmd = &cobra.Command{
 	Use:   "teardown",
 	Short: "Remove SDD setup from this project",
-	Long: `Removes all SDD setup from the current project:
+	Long: `Removes SDD setup from the current project:
 
   • Deregisters the mempalace MCP server from Claude
   • Deletes .mempalace/ (knowledge graph)
   • Deletes .venv/ (Python virtual environment)
 
-Does not remove .claude/commands, SKILL.md, or .golangci.yml.
+With --full, also removes:
+  • .claude/commands/ (SDD slash commands)
+  • SKILL.md (SDD skills reference)
+
 Run sdd setup again to restore.`,
 	RunE: runTeardown,
 }
 
+func init() {
+	teardownCmd.Flags().BoolVar(
+		&teardownFull,
+		"full",
+		false,
+		"Also remove .claude/commands/ and SKILL.md",
+	)
+}
+
 func runTeardown(cmd *cobra.Command, args []string) error {
 	fmt.Println()
-	color.Yellow("  This will remove .mempalace/ and .venv/ from this project.")
+	if teardownFull {
+		color.Yellow("  This will remove .mempalace/, .venv/, .claude/commands/, and SKILL.md from this project.")
+	} else {
+		color.Yellow("  This will remove .mempalace/ and .venv/ from this project.")
+		fmt.Printf("  Use %s to also remove .claude/commands/ and SKILL.md\n", color.CyanString("--full"))
+	}
 	fmt.Printf("  Type %s to confirm: ", color.RedString("yes"))
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -47,7 +66,7 @@ func runTeardown(cmd *cobra.Command, args []string) error {
 		{
 			desc: "Deregistering mempalace MCP",
 			fn: func() error {
-				exec.Command("claude", "mcp", "remove", "mempalace").Run()
+				exec.Command("claude", "mcp", "remove", "mempalace").Run() //nolint:errcheck
 				return nil
 			},
 		},
@@ -61,9 +80,28 @@ func runTeardown(cmd *cobra.Command, args []string) error {
 		},
 	}
 
+	if teardownFull {
+		steps = append(steps,
+			struct {
+				desc string
+				fn   func() error
+			}{
+				desc: "Removing .claude/commands/",
+				fn:   func() error { return os.RemoveAll(".claude/commands") },
+			},
+			struct {
+				desc string
+				fn   func() error
+			}{
+				desc: "Removing SKILL.md",
+				fn:   func() error { return os.Remove("SKILL.md") },
+			},
+		)
+	}
+
 	for _, s := range steps {
 		fmt.Printf("  %s %s...\n", color.BlueString("→"), s.desc)
-		if err := s.fn(); err != nil {
+		if err := s.fn(); err != nil && !os.IsNotExist(err) {
 			fmt.Printf("  %s %s: %s\n", color.RedString("✗"), s.desc, err.Error())
 			return err
 		}

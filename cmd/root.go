@@ -18,7 +18,7 @@ var rootCmd = &cobra.Command{
 	Long: color.BlueString(`
 ╔═══════════════════════════════════════════════╗
 ║     SDD - Spec Driven Development Toolkit     ║
-║     Spec-Driven Development for Go            ║
+║     Go · Node · Python · Rust · Java          ║
 ╚═══════════════════════════════════════════════╝
 
 Transforms Jira/Confluence specs into merged PRs
@@ -35,6 +35,7 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(mineCmd)
 	rootCmd.AddCommand(verifyCmd)
 	rootCmd.AddCommand(qualityCmd)

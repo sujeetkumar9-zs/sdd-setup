@@ -16,9 +16,10 @@ curl -fsSL https://github.com/sujeetkumar9-zs/sdd-setup/releases/latest/download
   -o /usr/local/bin/sdd && chmod +x /usr/local/bin/sdd
 ```
 
-**From source**
+**Linux**
 ```bash
-go install github.com/sujeetkumar9-zs/sdd-setup@latest
+curl -fsSL https://github.com/sujeetkumar9-zs/sdd-setup/releases/latest/download/sdd-linux-amd64 \
+  -o /usr/local/bin/sdd && chmod +x /usr/local/bin/sdd
 ```
 
 Verify:
@@ -70,14 +71,25 @@ To skip the codebase mining step:
 sdd setup --skip-mine
 ```
 
+If setup is interrupted (network error, missing tool, etc.), resume from where it left off:
+```bash
+sdd setup --resume
+```
+
 ### Daily workflow
 
 ```bash
 # After implementing a feature — update the knowledge graph
 sdd mine
 
+# Mine only changed files (faster on large repos)
+sdd mine --changed
+
 # Before creating a PR — run all quality gates
 sdd quality
+
+# After upgrading the sdd binary — refresh skills and commands
+sdd update
 
 # Check that everything is wired up correctly
 sdd verify
@@ -97,12 +109,16 @@ sdd teardown
 | Command | Description |
 |---|---|
 | `sdd setup` | One-time project setup |
+| `sdd setup --resume` | Resume an interrupted setup |
+| `sdd update` | Refresh skills and commands to the latest version |
 | `sdd mine` | Re-index codebase into the knowledge graph |
+| `sdd mine --changed` | Re-index only git-modified directories (faster) |
 | `sdd quality` | Run all quality gates before a PR |
 | `sdd verify` | Check all SDD components are working |
 | `sdd status` | Show knowledge graph and MCP status |
 | `sdd search <query>` | Search the project knowledge graph |
 | `sdd teardown` | Remove Mempalace and venv from this project |
+| `sdd teardown --full` | Also removes `.claude/commands/` and `SKILL.md` |
 
 ## Claude Slash Commands
 
@@ -128,9 +144,55 @@ Implements a feature end-to-end from a Jira spec. Phases:
 
 Reports current progress through the spec-to-pr workflow: which phase is active, what is done, what remains, and any blockers.
 
+### `/spec-to-pr-resume [JIRA-KEY]`
+
+Recovers a `spec-to-pr` session that was interrupted by a context window overflow. Reads `.claude/sdd-contract.md` (the handoff artifact written at the end of Phase 4A) to determine what was already completed, then resumes from the correct phase without re-implementing work that is already done.
+
+- If `sdd-contract.md` is missing and a JIRA-KEY is provided, offers to restart from Phase 1
+- Detects phase by checking sentinel files (`sdd-data-done.md`, `sdd-logic-done.md`, gap files) and actual file existence on disk
+- Confirms the detected resume point with the user before spawning any agents
+- Respects the original approved plan — does not re-plan or re-prompt for approval
+
+```
+/spec-to-pr-resume
+/spec-to-pr-resume PROJ-123
+```
+
 ### `/spec-to-pr-quality`
 
 Runs all language-appropriate quality gates and reports results with fix instructions for each failure.
+
+### `/fix-bug JIRA-KEY [confluence-page ...]`
+
+Investigates and fixes the bug described in a Jira ticket. Phases:
+
+1. **Context** — fetches the Jira bug report (description, repro steps, stack traces), Confluence architecture docs, and queries mempalace to map the affected code path through all layers
+2. **Debug** — traces the reported behaviour through the code path; identifies the defect location and logic flaw using mempalace; forms a ranked list of root cause hypotheses
+3. **RCA** — presents a structured Root Cause Analysis (entry point, defect location, exact logic flaw, evidence, impact); **waits for user confirmation before planning any fix**
+4. **Fix plan** — the minimum correct change, file by file, with a regression test covering the exact repro scenario; waits for explicit approval before writing code
+5. **Implementation** — makes exactly the approved changes, writes the regression test, runs `sdd quality`
+6. **PR** — title `fix(JIRA-KEY): <summary>`, description includes RCA, what changed, regression test, and manual verification steps
+
+```
+/fix-bug PROJ-123
+/fix-bug PROJ-123 confluence-page-id
+```
+
+### `/address-pr-comments [JIRA-KEY] [confluence-page ...]`
+
+Addresses all unresolved reviewer comments on the open PR for the current branch. Phases:
+
+1. **Context** — fetches the PR diff and all unresolved review comments, loads comment history (`.claude/pr-feedback-history.md`) to skip already-addressed items, queries mempalace for patterns in touched files
+2. **Triage** — classifies every comment as ACTIONABLE, AMBIGUOUS, or OUT OF SCOPE; batches all clarifying questions in one shot before planning; surfaces out-of-scope requests for user decision
+3. **Plan** — one entry per comment: exact file, line range, and change description; presents a summary table and waits for explicit approval before writing any code
+4. **Implementation** — makes only the changes in the approved plan; runs `sdd quality` and fixes any regressions
+5. **History** — appends a session record to `.claude/pr-feedback-history.md` (addressed / deferred / out of scope) so future runs skip what was already done
+
+```
+/address-pr-comments
+/address-pr-comments PROJ-123
+/address-pr-comments PROJ-123 confluence-page-id
+```
 
 ### `/review-pr JIRA-KEY [confluence-page ...]`
 
@@ -261,6 +323,8 @@ Each failed check includes a specific fix hint.
 
 ## Development
 
+> **Note**: Go is only required if you are building `sdd` from source. End users install the pre-compiled binary via `curl` above and do not need Go.
+
 ```bash
 git clone https://github.com/sujeetkumar9-zs/sdd-setup.git
 cd sdd-setup
@@ -272,7 +336,7 @@ go build -o sdd .
 To test changes in another project without publishing a release:
 
 ```bash
-go install .        # rebuilds and installs to $GOPATH/bin
+go build -o sdd .   # rebuild binary
 cd your-other-project
-sdd setup           # installs updated skills and commands
+/path/to/sdd setup  # use the local binary directly
 ```

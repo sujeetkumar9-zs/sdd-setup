@@ -31,6 +31,13 @@ func Mine() error {
 	return run("mempalace", "--palace", palacePath(), "mine", "./")
 }
 
+// MineChanged mines only the specified directory paths.
+// Used by `sdd mine --changed` to re-index only what git reports as modified.
+func MineChanged(paths []string) error {
+	args := append([]string{"--palace", palacePath(), "mine"}, paths...)
+	return run("mempalace", args...)
+}
+
 // Status shows current palace status
 func Status() error {
 	return run("mempalace", "--palace", palacePath(), "status")

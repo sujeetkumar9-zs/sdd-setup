@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+
 // Language constants returned by DetectLanguage.
 const (
 	LangGo      = "go"
@@ -82,7 +83,10 @@ func CheckPrerequisites(lang string) error {
 // CreateVenv creates a Python virtual environment for mempalace.
 func CreateVenv() error {
 	if _, err := os.Stat(".venv"); os.IsNotExist(err) {
-		return exec.Command("python3", "-m", "venv", ".venv").Run()
+		out, err := exec.Command("python3", "-m", "venv", ".venv").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("python3 -m venv .venv failed\n  RCA: %w\n  Output: %s", err, string(out))
+		}
 	}
 	return nil
 }
@@ -111,11 +115,9 @@ func installGoTools() error {
 	}
 
 	for _, tool := range tools {
-		cmd := exec.Command("go", "install", tool)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to install %s: %w", tool, err)
+		out, err := exec.Command("go", "install", tool).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("go install %s failed\n  RCA: %w\n  Output: %s", tool, err, string(out))
 		}
 	}
 	return nil
@@ -123,11 +125,9 @@ func installGoTools() error {
 
 func installNodeTools() error {
 	if _, err := exec.LookPath("eslint"); err != nil {
-		cmd := exec.Command("npm", "install", "-g", "eslint")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to install eslint: %w", err)
+		out, err := exec.Command("npm", "install", "-g", "eslint").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("npm install -g eslint failed\n  RCA: %w\n  Output: %s", err, string(out))
 		}
 	}
 	return nil
@@ -137,11 +137,9 @@ func installPythonTools() error {
 	tools := []string{"ruff", "pytest"}
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool); err != nil {
-			cmd := exec.Command("pip", "install", tool)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("failed to install %s: %w", tool, err)
+			out, err := exec.Command("pip", "install", tool).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("pip install %s failed\n  RCA: %w\n  Output: %s", tool, err, string(out))
 			}
 		}
 	}

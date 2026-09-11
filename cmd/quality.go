@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 
@@ -47,17 +49,34 @@ func runQuality(cmd *cobra.Command, args []string) error {
 			color.BlueString("→"), g.name)
 
 		c := exec.Command(g.command[0], g.command[1:]...)
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
-		out, err := c.Output()
 
+		var buf bytes.Buffer
 		if g.check != nil {
-			err = g.check(string(out))
+			// Gates with a check function need captured output — buffer only.
+			c.Stdout = &buf
+			c.Stderr = &buf
+		} else {
+			// Stream live output AND capture for RCA on failure.
+			c.Stdout = io.MultiWriter(os.Stdout, &buf)
+			c.Stderr = io.MultiWriter(os.Stderr, &buf)
+		}
+
+		runErr := c.Run()
+
+		var err error
+		if g.check != nil {
+			err = g.check(buf.String())
+		} else {
+			err = runErr
 		}
 
 		if err != nil {
-			fmt.Printf("  %s %s FAILED\n\n",
-				color.RedString("✗"), g.name)
+			if g.check != nil && buf.Len() > 0 {
+				// For check-based gates the buffered output wasn't streamed — print it now.
+				fmt.Print(buf.String())
+			}
+			fmt.Printf("  %s %s FAILED: %s\n\n",
+				color.RedString("✗"), g.name, color.RedString(err.Error()))
 			results = append(results,
 				fmt.Sprintf("  %s %s", color.RedString("✗"), g.name))
 			allPassed = false

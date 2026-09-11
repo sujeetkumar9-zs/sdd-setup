@@ -13,6 +13,7 @@ import (
 )
 
 var skipMine bool
+var resumeSetup bool
 
 var setupCmd = &cobra.Command{
 	Use:   "setup",
@@ -36,64 +37,95 @@ Usage:
 }
 
 func init() {
-	setupCmd.Flags().BoolVar(
-		&skipMine,
-		"skip-mine",
-		false,
-		"Skip the codebase mining step (faster setup)",
-	)
+	setupCmd.Flags().BoolVar(&skipMine, "skip-mine", false,
+		"Skip the codebase mining step (faster setup)")
+	setupCmd.Flags().BoolVar(&resumeSetup, "resume", false,
+		"Resume a previously interrupted setup, skipping already-completed steps")
 }
 
 func runSetup(cmd *cobra.Command, args []string) error {
 	printBanner()
+
+	// Load or initialise state for resume support.
+	var state *setupState
+	if resumeSetup {
+		s, err := loadState()
+		if err != nil {
+			return fmt.Errorf(
+				"no interrupted setup found — run %s to start fresh\n  (looked for %s)",
+				color.CyanString("sdd setup"), stateFile,
+			)
+		}
+		state = s
+		fmt.Printf("  %s Resuming previous setup (%d step(s) already completed)\n\n",
+			color.YellowString("↻"), len(state.Completed))
+	} else {
+		state = &setupState{}
+	}
 
 	lang := system.DetectLanguage()
 	printDetectedLang(lang)
 
 	steps := []step{
 		{
+			id:          "check-prerequisites",
 			name:        "Checking prerequisites",
 			description: "Python, Claude, mempalace" + langPrereqDesc(lang),
 			fn:          func() error { return system.CheckPrerequisites(lang) },
+			rcaHint:     "One or more required tools are missing. Install each tool listed above, then re-run 'sdd setup'.",
 		},
 		{
+			id:          "create-venv",
 			name:        "Creating Python virtual environment",
 			description: "Isolated Python for mempalace",
 			fn:          system.CreateVenv,
+			rcaHint:     "Check that python3 is installed ('python3 --version') and that you have write access to the current directory.",
 		},
 		{
+			id:          "install-lang-tools",
 			name:        "Installing language tools",
 			description: langToolDesc(lang),
 			fn:          func() error { return system.InstallLanguageTools(lang) },
+			rcaHint:     "Check your network connection and that the package manager (go/npm/pip) is working correctly.",
 		},
 		{
+			id:          "init-mempalace",
 			name:        "Initializing Mempalace",
 			description: "Creating .mempalace/palace/",
 			fn:          mempalace.Init,
+			rcaHint:     "Check that 'mempalace' is installed ('pipx install mempalace') and that you have write access to the current directory.",
 		},
 		{
+			id:          "configure-mcp",
 			name:        "Configuring Claude MCP servers",
 			description: "Connecting mempalace to Claude",
 			fn:          mcp.Configure,
+			rcaHint:     "Check that 'claude' CLI is installed ('npm install -g @anthropic-ai/claude-code') and accessible on your PATH.",
 		},
 		{
+			id:          "install-skills",
 			name:        "Installing SDD skills and commands",
 			description: "SKILL.md, slash commands, examples",
 			fn:          templates.Install,
+			rcaHint:     "Check that you have write access to the current directory and that '.claude/' can be created.",
 		},
 		{
+			id:          "update-gitignore",
 			name:        "Updating .gitignore",
 			description: "Excluding .mempalace and .venv",
 			fn:          system.UpdateGitignore,
+			rcaHint:     "Check that you have write access to the .gitignore file in this directory.",
 		},
 	}
 
 	// Add mining step unless skipped
 	if !skipMine {
 		mineStep := step{
+			id:          "mine-codebase",
 			name:        "Mining codebase",
 			description: "Building knowledge graph (may take a few mins)",
 			fn:          mempalace.Mine,
+			rcaHint:     "Mining can fail if mempalace is not correctly installed or the .mempalace/palace directory is missing. Try 'sdd verify'.",
 		}
 		// Insert mining after init
 		steps = append(steps[:4], append([]step{mineStep}, steps[4:]...)...)
@@ -102,16 +134,26 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	// Execute all steps
 	total := len(steps)
 	for i, s := range steps {
+		if state.isDone(s.id) {
+			printStepSkipped(i+1, total, s.name)
+			continue
+		}
+
 		printStep(i+1, total, s.name, s.description)
 
 		if err := s.fn(); err != nil {
-			printStepFail(s.name, err)
+			printStepFail(s, err)
+			// Save state so --resume can skip what succeeded so far.
+			_ = state.save()
 			return err
 		}
 
+		state.markDone(s.id)
+		_ = state.save()
 		printStepSuccess()
 	}
 
+	clearState()
 	printSetupComplete()
 
 	// Verify everything is wired up correctly
@@ -164,9 +206,11 @@ func langToolDesc(lang string) string {
 // ─────────────────────────────────────────────────────────
 
 type step struct {
+	id          string
 	name        string
 	description string
 	fn          func() error
+	rcaHint     string
 }
 
 // ─────────────────────────────────────────────────────────
@@ -204,16 +248,33 @@ func printStepSuccess() {
 	fmt.Printf("  %s Done\n", color.GreenString("✓"))
 }
 
-func printStepFail(name string, err error) {
-	fmt.Printf("  %s Failed: %s\n",
-		color.RedString("✗"),
-		color.RedString(err.Error()),
+func printStepSkipped(current, total int, name string) {
+	fmt.Printf(
+		"\n  %s [%d/%d] %s\n  %s\n",
+		color.HiBlackString("↷"),
+		current, total,
+		color.HiBlackString(name),
+		color.HiBlackString("   already completed — skipping"),
 	)
+}
+
+func printStepFail(s step, err error) {
 	fmt.Println()
-	color.Yellow("  Troubleshooting:")
-	fmt.Printf("  Run %s for help\n",
-		color.CyanString("sdd verify"),
-	)
+	color.Red("  ✗ Step failed: " + s.name)
+	fmt.Println()
+	color.Yellow("  ── Error ──────────────────────────────────")
+	fmt.Printf("  %s\n", err.Error())
+	fmt.Println()
+	if s.rcaHint != "" {
+		color.Yellow("  ── Root Cause Analysis ────────────────────")
+		fmt.Printf("  %s\n", s.rcaHint)
+		fmt.Println()
+	}
+	color.Yellow("  ── Next steps ─────────────────────────────")
+	fmt.Printf("  • Fix the issue above, then resume:  %s\n", color.CyanString("sdd setup --resume"))
+	fmt.Printf("  • Or restart from scratch:           %s\n", color.CyanString("sdd setup"))
+	fmt.Printf("  • Diagnose your environment:         %s\n", color.CyanString("sdd verify"))
+	fmt.Println()
 }
 
 func printSetupComplete() {
